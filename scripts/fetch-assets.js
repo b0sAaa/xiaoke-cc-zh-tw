@@ -1,12 +1,12 @@
-// 下载角色图和音效。
-// 这些素材来自 aklnaaw/dsh-xiaoke-widget（及其上游 MeteorNOX/DeepSeek-Balance-Whale-Widget），
-// 原作者声明它们不适用 MIT、不授予再分发许可，所以本仓库不附带，安装时从原仓库直接下载，仅供个人使用。
+// 下載角色圖和音效。
+// 這些素材來自 aklnaaw/dsh-xiaoke-widget（及其上游 MeteorNOX/DeepSeek-Balance-Whale-Widget），
+// 原作者宣告它們不適用 MIT、不授予再分發許可，所以本倉庫不附帶，安裝時從原倉庫直接下載，僅供個人使用。
 const fs = require('fs')
 const path = require('path')
 const https = require('https')
 
 const REPO = 'aklnaaw/dsh-xiaoke-widget'
-const REF = '4822bac4acc742ad91787495b9dd9ec32a38b1b7' // 固定版本，避免原仓库改动导致下载到不对的文件
+const REF = '4822bac4acc742ad91787495b9dd9ec32a38b1b7' // 固定版本，避免原倉庫改動導致下載到不對的檔案
 const FILES = ['xiaoke1.png', 'D1.mp3', 'D2.mp3', 'Ya1.mp3', 'Ya2.mp3', 'task-end-a.wav']
 const dir = path.join(__dirname, '..', 'assets')
 
@@ -41,5 +41,5 @@ function get(url, dest, redirects = 5) {
       process.exitCode = 1
     }
   }
-  if (process.exitCode) console.warn('有素材没下载成功，可稍后执行 `npm run assets` 重试。')
+  if (process.exitCode) console.warn('有素材沒下載成功，可稍後執行 `npm run assets` 重試。')
 })()

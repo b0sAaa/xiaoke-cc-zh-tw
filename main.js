@@ -13,11 +13,11 @@ const DEFAULTS = {
   turnBubble: true, turnSound: true, turnSeconds: 8,
   currency: 'USD', cnyRate: 7.1,
   followClaude: true,
-  // 每周额度：周四 1:00 重置；weeklyBudget 为空时，用 calibrateUsedPct（当前已用百分比）自动反推
+  // 每週額度：週四 1:00 重置；weeklyBudget 為空時，用 calibrateUsedPct（當前已用百分比）自動反推
   resetDay: 4, resetHour: 1, weeklyBudget: null, calibrateUsedPct: null,
 }
 let cfg = { ...DEFAULTS }
-try { cfg = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(cfgFile(), 'utf8')) } } catch (e) { /* 首次启动 */ }
+try { cfg = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(cfgFile(), 'utf8')) } } catch (e) { /* 首次啟動 */ }
 const saveCfg = () => { try { fs.writeFileSync(cfgFile(), JSON.stringify(cfg, null, 1)) } catch (e) { /* ignore */ } }
 
 let win
@@ -25,7 +25,7 @@ let tray
 let tracker
 let lastStats = null
 
-// 最近一次重置时刻（本地时间 resetDay 星期几 resetHour 点）
+// 最近一次重置時刻（本地時間 resetDay 星期幾 resetHour 點）
 function periodStart(now = Date.now()) {
   const d = new Date(now)
   d.setHours(cfg.resetHour, 0, 0, 0)
@@ -74,9 +74,9 @@ function setCfg(patch) {
 function menuTemplate() {
   const autostart = app.getLoginItemSettings(loginArgs()).openAtLogin
   return [
-    { label: '看看账本', click: () => send('show-stats') },
-    { label: '问 Claude…（双击小克）', click: () => openQuick() },
-    { label: '校准每周额度…', click: () => send('calibrate-ui') },
+    { label: '看看賬本', click: () => send('show-stats') },
+    { label: '問 Claude…（雙擊小克）', click: () => openQuick() },
+    { label: '校準每週額度…', click: () => send('calibrate-ui') },
     { label: '戳一下', click: () => send('poke') },
     { type: 'separator' },
     {
@@ -85,20 +85,20 @@ function menuTemplate() {
       })),
     },
     {
-      label: '货币', submenu: [
+      label: '貨幣', submenu: [
         { label: '美元 $', type: 'radio', checked: cfg.currency === 'USD', click: () => setCfg({ currency: 'USD' }) },
-        { label: `人民币 ¥（汇率 ${cfg.cnyRate}）`, type: 'radio', checked: cfg.currency === 'CNY', click: () => setCfg({ currency: 'CNY' }) },
+        { label: `人民幣 ¥（匯率 ${cfg.cnyRate}）`, type: 'radio', checked: cfg.currency === 'CNY', click: () => setCfg({ currency: 'CNY' }) },
       ],
     },
-    { label: '按压音效', type: 'checkbox', checked: cfg.sound, click: m => setCfg({ sound: m.checked }) },
-    { label: '每轮结束冒泡', type: 'checkbox', checked: cfg.turnBubble, click: m => setCfg({ turnBubble: m.checked }) },
-    { label: '每轮结束提示音', type: 'checkbox', checked: cfg.turnSound, click: m => setCfg({ turnSound: m.checked }) },
-    { label: '跟着 Claude Code 开关', type: 'checkbox', checked: cfg.followClaude, click: m => setCfg({ followClaude: m.checked }) },
-    { label: '开机自启', type: 'checkbox', checked: autostart, click: m => { app.setLoginItemSettings({ ...loginArgs(), openAtLogin: m.checked }); rebuildTray() } },
+    { label: '按壓音效', type: 'checkbox', checked: cfg.sound, click: m => setCfg({ sound: m.checked }) },
+    { label: '每輪結束冒泡', type: 'checkbox', checked: cfg.turnBubble, click: m => setCfg({ turnBubble: m.checked }) },
+    { label: '每輪結束提示音', type: 'checkbox', checked: cfg.turnSound, click: m => setCfg({ turnSound: m.checked }) },
+    { label: '跟著 Claude Code 開關', type: 'checkbox', checked: cfg.followClaude, click: m => setCfg({ followClaude: m.checked }) },
+    { label: '開機自啟', type: 'checkbox', checked: autostart, click: m => { app.setLoginItemSettings({ ...loginArgs(), openAtLogin: m.checked }); rebuildTray() } },
     { type: 'separator' },
-    { label: '编辑台词 (lines.json)', click: () => shell.openPath(path.join(__dirname, 'lines.json')) },
-    { label: '编辑价格 (pricing.json)', click: () => shell.openPath(path.join(__dirname, 'pricing.json')) },
-    { label: '重新加载台词和价格', click: () => { tracker.loadPricing(); tracker.entries = {}; tracker.files = {}; tracker.live = false; tracker.scan(); send('reload-lines') } },
+    { label: '編輯臺詞 (lines.json)', click: () => shell.openPath(path.join(__dirname, 'lines.json')) },
+    { label: '編輯價格 (pricing.json)', click: () => shell.openPath(path.join(__dirname, 'pricing.json')) },
+    { label: '重新載入臺詞和價格', click: () => { tracker.loadPricing(); tracker.entries = {}; tracker.files = {}; tracker.live = false; tracker.scan(); send('reload-lines') } },
     { label: '回到右下角', click: () => { const wa = screen.getPrimaryDisplay().workArea; win.setPosition(wa.x + wa.width - W - 20, wa.y + wa.height - H); setCfg({ x: null, y: null }) } },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
@@ -106,7 +106,7 @@ function menuTemplate() {
 }
 
 function loginArgs() {
-  // 开发模式下 execPath 是 electron.exe，需要把应用目录作为参数传进去
+  // 開發模式下 execPath 是 electron.exe，需要把應用目錄作為引數傳進去
   return app.isPackaged ? {} : { path: process.execPath, args: [path.resolve(__dirname)] }
 }
 
@@ -118,12 +118,12 @@ function rebuildTray() {
 function createTray() {
   const img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'xiaoke1.png')).resize({ width: 16, height: 16 })
   tray = new Tray(img)
-  tray.setToolTip('小克 · Claude Code 记账')
+  tray.setToolTip('小克 · Claude Code 記賬')
   tray.on('click', () => { win.show(); send('poke') })
   rebuildTray()
 }
 
-// ---------- 双击小克：仿 Claude 快捷输入框，回车后交给 Claude 桌面版开新对话 ----------
+// ---------- 雙擊小克：仿 Claude 快捷輸入框，回車後交給 Claude 桌面版開新對話 ----------
 let quick = null
 function openQuick() {
   if (quick && !quick.isDestroyed()) { quick.show(); quick.focus(); return }
@@ -138,7 +138,7 @@ function openQuick() {
   quick.loadFile('quick.html')
   let shownAt = Infinity
   quick.once('ready-to-show', () => { quick.show(); quick.focus(); shownAt = Date.now() })
-  // 点到别处就收起；刚弹出时 Windows 可能抢不到焦点，前 0.6 秒的失焦忽略
+  // 點到別處就收起；剛彈出時 Windows 可能搶不到焦點，前 0.6 秒的失焦忽略
   quick.on('blur', () => { if (Date.now() - shownAt > 600 && quick && !quick.isDestroyed()) quick.close() })
   quick.on('closed', () => { quick = null })
 }
@@ -167,7 +167,7 @@ ipcMain.handle('get-pos', () => win.getPosition())
 ipcMain.on('move-to', (e, [x, y]) => win.setPosition(Math.round(x), Math.round(y)))
 ipcMain.on('move-end', () => { const [x, y] = win.getPosition(); cfg.x = x; cfg.y = y; saveCfg() })
 ipcMain.on('menu', () => Menu.buildFromTemplate(menuTemplate()).popup({ window: win }))
-// 角色图的不透明区域（降采样成 1/4 网格），用来判断鼠标是否点在小克身上
+// 角色圖的不透明區域（降取樣成 1/4 網格），用來判斷滑鼠是否點在小克身上
 ipcMain.handle('mask', () => {
   const img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'xiaoke1.png'))
   const { width, height } = img.getSize()
@@ -184,13 +184,13 @@ ipcMain.handle('mask', () => {
   return { w, h, data }
 })
 ipcMain.handle('lines', () => {
-  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'lines.json'), 'utf8')) } catch (e) { return [{ text: '台词文件坏掉了...', weight: 1 }] }
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'lines.json'), 'utf8')) } catch (e) { return [{ text: '臺詞檔案壞掉了...', weight: 1 }] }
 })
 
-// ---------- 跟着 Claude Code 开关 ----------
-// hook.js 在 sessions/ 下为每个 Claude Code 会话放一个文件，会话结束时删掉。
-// 文件和对话记录都超过 STALE_MS 没动静的，当作已关闭（兜底 Claude Code 异常退出没触发 SessionEnd）。
-// 曾经有过会话、现在一个都不剩 → 小克下班。手动启动且从没有会话时不会自动退出。
+// ---------- 跟著 Claude Code 開關 ----------
+// hook.js 在 sessions/ 下為每個 Claude Code 會話放一個檔案，會話結束時刪掉。
+// 檔案和對話記錄都超過 STALE_MS 沒動靜的，當作已關閉（兜底 Claude Code 異常退出沒觸發 SessionEnd）。
+// 曾經有過會話、現在一個都不剩 → 小克下班。手動啟動且從沒有會話時不會自動退出。
 const STALE_MS = 2 * 3600e3
 const sessDir = () => path.join(app.getPath('userData'), 'sessions')
 let hadSession = false
@@ -206,10 +206,10 @@ function liveSessions() {
     try {
       let last = fs.statSync(p).mtimeMs
       const info = JSON.parse(fs.readFileSync(p, 'utf8'))
-      try { if (info.transcript) last = Math.max(last, fs.statSync(info.transcript).mtimeMs) } catch (e) { /* 记录还没生成 */ }
+      try { if (info.transcript) last = Math.max(last, fs.statSync(info.transcript).mtimeMs) } catch (e) { /* 記錄還沒生成 */ }
       if (Date.now() - last > STALE_MS) fs.rmSync(p, { force: true })
       else n++
-    } catch (e) { /* 文件正被写 */ }
+    } catch (e) { /* 檔案正被寫 */ }
   }
   return n
 }
@@ -247,7 +247,7 @@ app.on('before-quit', () => {
 })
 app.on('window-all-closed', () => app.quit())
 
-// 自检：XK_SELFTEST=1 时依次截图「待机 / 戳一下 / 账本 / 一轮结束」，存到 selftest/ 后退出
+// 自檢：XK_SELFTEST=1 時依次截圖「待機 / 戳一下 / 賬本 / 一輪結束」，存到 selftest/ 後退出
 if (process.env.XK_SELFTEST) {
   app.whenReady().then(async () => {
     const dir = path.join(__dirname, 'selftest')

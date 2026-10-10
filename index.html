@@ -58,7 +58,7 @@ let lines = []
 let lastIdx = -1
 let hideTimer = null
 
-// ---------- 金额 ----------
+// ---------- 金額 ----------
 function money(usd, digits) {
   const cny = cfg.currency === 'CNY'
   const v = cny ? usd * cfg.cnyRate : usd
@@ -110,7 +110,7 @@ function play(file) {
   a.play().catch(() => {})
 }
 
-// ---------- 交互 ----------
+// ---------- 互動 ----------
 function poke() {
   charEl.classList.add('press')
   setTimeout(() => charEl.classList.remove('press'), 140)
@@ -119,7 +119,7 @@ function poke() {
 }
 
 function showStats() {
-  if (!stats) { say('还在翻账本...等我一下', 3); return }
+  if (!stats) { say('還在翻賬本...等我一下', 3); return }
   const days = Object.entries(stats.days)
   const max = Math.max(...days.map(d => d[1]), 0.0001)
   const todayKey = days[days.length - 1][0]
@@ -127,27 +127,27 @@ function showStats() {
     `<div class="${d === todayKey ? 'today' : ''}" style="height:${Math.max(2, v / max * 46)}px" title="${d} ${money(v, 2)}"><span>${d.slice(8)}</span></div>`).join('')
   const models = Object.entries(stats.byModel).sort((a, b) => b[1] - a[1])
     .map(([m, v]) => `<tr><td>${esc(m.replace('claude-', ''))}</td><td class="r">${money(v, 2)}</td></tr>`).join('')
-  say(`<div class="sub">今日（按 API 价折算）</div>
+  say(`<div class="sub">今日（按 API 價折算）</div>
     <div class="big">${money(stats.today, 2)}</div>
-    <div class="sub">${stats.todayMsgs} 次回复 · 近 7 天 ${money(stats.week, 2)}</div>
-    ${stats.budget ? `<div class="sub">本周 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · 剩 ${Math.round(remainPct())}% · Resets ${fmtReset(stats.nextReset)}</div>` : ''}
+    <div class="sub">${stats.todayMsgs} 次回覆 · 近 7 天 ${money(stats.week, 2)}</div>
+    ${stats.budget ? `<div class="sub">本週 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · 剩 ${Math.round(remainPct())}% · Resets ${fmtReset(stats.nextReset)}</div>` : ''}
     <div class="bars">${bars}</div><div class="lbl"></div>
     ${models ? `<table>${models}</table>` : ''}`, 10)
 }
 
 function turnComment(usd) {
-  if (usd < 0.05) return '这轮很省～'
-  if (usd < 0.5) return '嗯，正常发挥。'
-  if (usd < 2) return 'token 烧得也太快了...'
-  if (usd < 5) return '这轮有点贵...我 thinking 了好久...'
-  return 'user，该交钱了....'
+  if (usd < 0.05) return '這輪很省～'
+  if (usd < 0.5) return '嗯，正常發揮。'
+  if (usd < 2) return 'token 燒得也太快了...'
+  if (usd < 5) return '這輪有點貴...我 thinking 了好久...'
+  return 'user，該交錢了....'
 }
 
 function onTurn(t) {
   if (cfg.turnSound) play('task-end-a.wav')
   if (!cfg.turnBubble) return
   const proj = t.cwd ? t.cwd.split(/[\\/]/).filter(Boolean).pop() : ''
-  say(`<div class="sub">${proj ? esc(proj) + ' · ' : ''}这轮做完啦</div>
+  say(`<div class="sub">${proj ? esc(proj) + ' · ' : ''}這輪做完啦</div>
     <div class="big">${money(t.cost)}</div>
     <div>${turnComment(t.cost)}</div>`, cfg.turnSeconds)
   charEl.classList.add('press')
@@ -168,15 +168,15 @@ function renderBadge() {
   if (!stats) return
   const r = remainPct()
   const fill = $('#fill')
-  if (r === null) { $('#pct').textContent = '点我校准'; fill.style.width = '100%'; badge.title = '还不知道你的每周额度，点一下填当前已用百分比'; return }
+  if (r === null) { $('#pct').textContent = '點我校準'; fill.style.width = '100%'; badge.title = '還不知道你的每週額度，點一下填當前已用百分比'; return }
   $('#pct').textContent = Math.round(r) + '% left'
   fill.style.width = r + '%'
   fill.classList.toggle('low', r < 10)
-  badge.title = `本周已用 ${money(stats.period, 2)} / 额度 ${money(stats.budget, 0)}
+  badge.title = `本週已用 ${money(stats.period, 2)} / 額度 ${money(stats.budget, 0)}
 Resets ${fmtReset(stats.nextReset)}`
 }
 
-// ---------- 透明区域点穿 ----------
+// ---------- 透明區域點穿 ----------
 let mask = null
 function overChar(x, y) {
   const r = charEl.getBoundingClientRect()
@@ -197,7 +197,7 @@ function updateIgnore(x, y) {
 document.addEventListener('mousemove', e => updateIgnore(e.clientX, e.clientY))
 document.addEventListener('mouseleave', () => { if (!drag && !ignoring) { ignoring = true; window.xk.setIgnore(true) } })
 
-// ---------- 拖动 / 点击 ----------
+// ---------- 拖動 / 點選 ----------
 charEl.addEventListener('pointerdown', async e => {
   if (e.button !== 0) return
   charEl.setPointerCapture(e.pointerId)
@@ -218,7 +218,7 @@ charEl.addEventListener('pointerup', e => {
   if (moved) window.xk.moveEnd(); else onClick()
   updateIgnore(e.clientX, e.clientY)
 })
-// 单击戳一下；双击弹出「问 Claude」输入框（单击延迟一点，等等看是不是双击）
+// 單擊戳一下；雙擊彈出「問 Claude」輸入框（單擊延遲一點，等等看是不是雙擊）
 let clickTimer = null
 function onClick() {
   if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; window.xk.quickOpen(); return }
@@ -226,13 +226,13 @@ function onClick() {
 }
 
 function calibrateUI() {
-  say(`<div class="sub">现在每周额度已经用了多少？</div>
+  say(`<div class="sub">現在每週額度已經用了多少？</div>
     <div><input class="pct" id="calib" type="number" min="1" max="100" placeholder="63"> %</div>
-    <div class="sub">回车确认 · 小克按本周已花的钱反推额度</div>`, 0)
+    <div class="sub">回車確認 · 小克按本週已花的錢反推額度</div>`, 0)
   const inp = $('#calib')
   inp.focus()
   inp.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { window.xk.calibrate(inp.value); say('校准好啦～', 2) }
+    if (e.key === 'Enter') { window.xk.calibrate(inp.value); say('校準好啦～', 2) }
     if (e.key === 'Escape') bubble.classList.remove('show')
   })
 }
@@ -241,16 +241,16 @@ badge.addEventListener('click', () => (stats && !stats.budget) ? calibrateUI() :
 bubble.addEventListener('click', e => { if (e.target.tagName !== 'INPUT') bubble.classList.remove('show') })
 document.addEventListener('contextmenu', e => { e.preventDefault(); window.xk.menu() })
 
-// ---------- 主进程消息 ----------
+// ---------- 主程序訊息 ----------
 window.xk.on('config', c => { cfg = c; applyScale(); renderBadge() })
 window.xk.on('stats', s => { stats = s; renderBadge() })
 window.xk.on('turn', onTurn)
 window.xk.on('poke', poke)
 window.xk.on('show-stats', showStats)
 window.xk.on('calibrate-ui', calibrateUI)
-window.xk.on('asked', () => say('交给 Claude 啦～', 3))
-window.xk.on('bye', () => say(esc(['下班啦～拜拜', 'Claude Code 关了，我也溜了～', '今天辛苦啦，记得早点睡'][Math.floor(Math.random() * 3)]), 0))
-window.xk.on('reload-lines', async () => { lines = await window.xk.lines(); say('台词和价格重新加载好啦', 3) })
+window.xk.on('asked', () => say('交給 Claude 啦～', 3))
+window.xk.on('bye', () => say(esc(['下班啦～拜拜', 'Claude Code 關了，我也溜了～', '今天辛苦啦，記得早點睡'][Math.floor(Math.random() * 3)]), 0))
+window.xk.on('reload-lines', async () => { lines = await window.xk.lines(); say('臺詞和價格重新載入好啦', 3) })
 
 ;(async () => {
   lines = await window.xk.lines()

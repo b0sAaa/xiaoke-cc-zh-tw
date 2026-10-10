@@ -1,8 +1,8 @@
-// Claude Code hook：让小克跟着 Claude Code 一起开关。
-//   node hook.js start  —— SessionStart：登记会话，小克没在跑就把她叫起来
-//   node hook.js ping   —— UserPromptSubmit：刷新会话的「在线」时间（顺便兜底拉起小克）
-//   node hook.js end    —— SessionEnd：注销会话；最后一个会话结束后小克自己下班
-// 任何错误都静默退出，绝不影响 Claude Code。
+// Claude Code hook：讓小克跟著 Claude Code 一起開關。
+//   node hook.js start  —— SessionStart：登記會話，小克沒在跑就把她叫起來
+//   node hook.js ping   —— UserPromptSubmit：重新整理會話的「線上」時間（順便兜底拉起小克）
+//   node hook.js end    —— SessionEnd：登出會話；最後一個會話結束後小克自己下班
+// 任何錯誤都靜默退出，絕不影響 Claude Code。
 const fs = require('fs')
 const path = require('path')
 const { spawn } = require('child_process')
@@ -45,5 +45,5 @@ try {
     fs.writeFileSync(file, JSON.stringify({ transcript: input.transcript_path || '', cwd: input.cwd || '', t: Date.now() }))
     if (!alive()) launch()
   }
-} catch (e) { /* 静默 */ }
+} catch (e) { /* 靜默 */ }
 process.exit(0)

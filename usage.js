@@ -1,7 +1,7 @@
-// 读取 Claude Code 本地对话记录（~/.claude/projects/**/*.jsonl），按 API 价格估算花费。
-// - 只扫最近 KEEP_DAYS 天改动过的文件；按偏移量增量读取，结果缓存到磁盘，重启不用重扫。
-// - 同一条回复会分多行写入（message.id + requestId 相同），以最后一行的 usage 为准。
-// - 主对话里出现 stop_reason=end_turn 时视为「一轮结束」，把这一轮（含子代理）的花费发出去。
+// 讀取 Claude Code 本地對話記錄（~/.claude/projects/**/*.jsonl），按 API 價格估算花費。
+// - 只掃最近 KEEP_DAYS 天改動過的檔案；按偏移量增量讀取，結果快取到磁碟，重啟不用重掃。
+// - 同一條回覆會分多行寫入（message.id + requestId 相同），以最後一行的 usage 為準。
+// - 主對話裡出現 stop_reason=end_turn 時視為「一輪結束」，把這一輪（含子代理）的花費發出去。
 const fs = require('fs')
 const fsp = fs.promises
 const path = require('path')
@@ -25,10 +25,10 @@ class UsageTracker extends EventEmitter {
     this.loadPricing()
     this.files = {}   // path -> { offset }
     this.entries = {} // key -> { d: date, c: cost, m: model, s: sessionId }
-    this.turnAcc = {} // sessionId -> 本轮累计
+    this.turnAcc = {} // sessionId -> 本輪累計
     this.ended = new Set()
-    this.live = false // 首次扫描期间不发「一轮结束」
-    this.periodStart = () => Date.now() - 7 * 86400e3 // 额度周期起点，由外部设置
+    this.live = false // 首次掃描期間不發「一輪結束」
+    this.periodStart = () => Date.now() - 7 * 86400e3 // 額度週期起點，由外部設定
     this.busy = false
     this.loadCache()
   }
@@ -67,7 +67,7 @@ class UsageTracker extends EventEmitter {
     try {
       const c = JSON.parse(fs.readFileSync(this.cacheFile, 'utf8'))
       if (c.v === 3) { this.files = c.files || {}; this.entries = c.entries || {} }
-    } catch (e) { /* 没有缓存就全量扫 */ }
+    } catch (e) { /* 沒有快取就全量掃 */ }
   }
 
   saveCache() {
@@ -129,7 +129,7 @@ class UsageTracker extends EventEmitter {
 
   async readFile(p, size) {
     const st = this.files[p] || { offset: 0 }
-    if (size < st.offset) st.offset = 0 // 文件被截断/重写
+    if (size < st.offset) st.offset = 0 // 檔案被截斷/重寫
     if (size === st.offset) { this.files[p] = st; return false }
     const fh = await fsp.open(p, 'r')
     try {
@@ -145,7 +145,7 @@ class UsageTracker extends EventEmitter {
         rest = lines.pop()
         for (const l of lines) this.handleLine(l, p)
       }
-      // 最后不完整的一行留到下次再读
+      // 最後不完整的一行留到下次再讀
       st.offset = pos - Buffer.byteLength(rest, 'utf8')
     } finally {
       await fh.close()
@@ -161,7 +161,7 @@ class UsageTracker extends EventEmitter {
       const list = await this.listFiles()
       let changed = false
       for (const f of list) {
-        try { if (await this.readFile(f.p, f.size)) changed = true } catch (e) { /* 文件正被写，下次再读 */ }
+        try { if (await this.readFile(f.p, f.size)) changed = true } catch (e) { /* 檔案正被寫，下次再讀 */ }
       }
       const alive = new Set(list.map(f => f.p))
       for (const p of Object.keys(this.files)) if (!alive.has(p)) delete this.files[p]
