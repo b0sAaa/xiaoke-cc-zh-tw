@@ -7,6 +7,7 @@ if (!app.requestSingleInstanceLock()) app.quit()
 
 const W = 300
 const H = 440
+let curH = H // 目前視窗高度：氣泡顯示時會往上加高（底部不動），收起後還原
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json')
 const DEFAULTS = {
   x: null, y: null, scale: 1, sound: true, volume: 0.5,
@@ -198,7 +199,7 @@ function menuTemplate() {
     { label: '編輯臺詞 (lines.json)', click: () => shell.openPath(path.join(__dirname, 'lines.json')) },
     { label: '編輯價格 (pricing.json)', click: () => shell.openPath(path.join(__dirname, 'pricing.json')) },
     { label: '重新載入臺詞和價格', click: () => { tracker.loadPricing(); tracker.entries = {}; tracker.files = {}; tracker.live = false; tracker.scan(); send('reload-lines') } },
-    { label: '回到右下角', click: () => { const wa = screen.getPrimaryDisplay().workArea; win.setBounds({ x: wa.x + wa.width - W - 20, y: wa.y + wa.height - H, width: W, height: H }); setCfg({ x: null, y: null }) } },
+    { label: '回到右下角', click: () => { const wa = screen.getPrimaryDisplay().workArea; curH = H; win.setBounds({ x: wa.x + wa.width - W - 20, y: wa.y + wa.height - H, width: W, height: H }); setCfg({ x: null, y: null }) } },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
   ]
@@ -266,19 +267,30 @@ ipcMain.on('set-ignore', (e, ignore) => {
 // 拖動：由主程序直接讀滑鼠的真實螢幕座標，不靠網頁事件的 screenX（縮放比例非整數、多螢幕時會越拖越偏）
 let dragTimer = null, dragFrom = null
 function stopDrag() { if (dragTimer) { clearInterval(dragTimer); dragTimer = null } }
-ipcMain.on('drag-start', () => { stopDrag(); dragFrom = { c: screen.getCursorScreenPoint(), p: win.getPosition() } })
+ipcMain.on('drag-start', () => { const [x, y] = win.getPosition(); stopDrag(); dragFrom = { c: screen.getCursorScreenPoint(), x, bottom: y + curH } })
 ipcMain.on('drag-run', () => {
   if (!dragFrom) return
   stopDrag()
-  const { c, p } = dragFrom
+  const { c, x, bottom } = dragFrom
   dragTimer = setInterval(() => {
     if (!win || win.isDestroyed()) return stopDrag()
     const n = screen.getCursorScreenPoint()
     // 不能用 setPosition：Windows 非整數縮放（如 125%）下它每呼叫一次視窗就會多長幾個像素，小克就越拖越往下掉。setBounds 連同寬高一起指定才不會漂。
-    win.setBounds({ x: p[0] + n.x - c.x, y: p[1] + n.y - c.y, width: W, height: H })
+    // 以視窗底部為基準，拖動中氣泡收起造成高度變化也不會跳
+    win.setBounds({ x: x + n.x - c.x, y: bottom + n.y - c.y - curH, width: W, height: curH })
   }, 8)
 })
-ipcMain.on('move-end', () => { stopDrag(); dragFrom = null; const [x, y] = win.getPosition(); cfg.x = x; cfg.y = y; saveCfg() })
+ipcMain.on('move-end', () => { stopDrag(); dragFrom = null; const [x, y] = win.getPosition(); cfg.x = x; cfg.y = y + curH - H; saveCfg() })
+// 氣泡太高放不下時，視窗往上加高（need 為需要的總高度，0 = 還原）
+ipcMain.on('fit-height', (e, need) => {
+  if (!win || win.isDestroyed()) return
+  const wa = screen.getDisplayMatching(win.getBounds()).workArea
+  const target = Math.min(Math.max(H, Math.ceil(Number(need) || 0)), wa.height)
+  if (target === curH) return
+  const b = win.getBounds()
+  win.setBounds({ x: b.x, y: b.y + curH - target, width: W, height: target })
+  curH = target
+})
 ipcMain.on('menu', () => Menu.buildFromTemplate(menuTemplate()).popup({ window: win }))
 // 角色圖的不透明區域（降取樣成 1/4 網格），用來判斷滑鼠是否點在小克身上
 ipcMain.handle('mask', () => {

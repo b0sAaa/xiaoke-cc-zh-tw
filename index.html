@@ -75,6 +75,17 @@ function applyScale() {
   charEl.style.width = Math.round(170 * cfg.scale) + 'px'
   placeBubble()
 }
+// 氣泡比上方空間高時，請主程序把視窗往上加高；收起後（等淡出完）再還原
+let wantH = -1, fitTimer = null
+function fitWindow() {
+  clearTimeout(fitTimer)
+  fitTimer = setTimeout(() => {
+    const need = bubble.classList.contains('show') ? $('#stage').offsetHeight + bubble.offsetHeight + 30 : 0
+    if (need !== wantH) { wantH = need; window.xk.fit(need) }
+  }, bubble.classList.contains('show') ? 0 : 250)
+}
+new MutationObserver(fitWindow).observe(bubble, { attributes: true, attributeFilter: ['class'] })
+new ResizeObserver(fitWindow).observe(bubble)
 function placeBubble() {
   const h = $('#stage').offsetHeight
   bubble.style.bottom = (h + 6) + 'px'
@@ -132,8 +143,8 @@ function showStats() {
   say(`<div class="sub">今日（按 API 價折算）</div>
     <div class="big">${money(stats.today, 2)}</div>
     <div class="sub">${stats.todayMsgs} 次回覆 · 近 7 天 ${money(stats.week, 2)}</div>
-    ${stats.rl && stats.rl.five && cfg.showFive ? `<div class="sub">5 小時 ${qtxt(stats.rl.five.used)} · Resets ${fmtReset(stats.rl.five.resetsAt)}</div>` : ''}
-    ${stats.rl && stats.rl.week ? `<div class="sub">本週 ${qtxt(stats.rl.week.used)} · Resets ${fmtReset(stats.rl.week.resetsAt)}</div>` : stats.budget ? `<div class="sub">本週 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · ${qtxt(100 - remainPct())} · Resets ${fmtReset(stats.nextReset)}</div>` : ''}
+    ${stats.rl && stats.rl.five && cfg.showFive ? `<div class="sub">5 小時 ${qtxt(stats.rl.five.used)} · Resets${NB}${fmtReset(stats.rl.five.resetsAt)}</div>` : ''}
+    ${stats.rl && stats.rl.week ? `<div class="sub">本週 ${qtxt(stats.rl.week.used)} · Resets${NB}${fmtReset(stats.rl.week.resetsAt)}</div>` : stats.budget ? `<div class="sub">本週 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · ${qtxt(100 - remainPct())} · Resets${NB}${fmtReset(stats.nextReset)}</div>` : ''}
     <div class="bars">${bars}</div><div class="lbl"></div>
     ${models ? `<table>${models}</table>` : ''}`, 10)
 }
@@ -161,9 +172,10 @@ function fmtReset(ts) {
   const d = new Date(ts)
   const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]
   const h = d.getHours() % 12 || 12
-  return `${day} ${h}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'AM' : 'PM'}`
+  return `${day}${NB}${h}:${String(d.getMinutes()).padStart(2, '0')}${NB}${d.getHours() < 12 ? 'AM' : 'PM'}`
 }
 const NL = String.fromCharCode(10)
+const NB = String.fromCharCode(160) // 不換行空格：避免「Resets 時間」被拆成兩行
 function remainPct() {
   if (stats && stats.rl && stats.rl.week) return Math.max(0, Math.min(100, 100 - stats.rl.week.used))
   if (!stats || !stats.budget) return null
@@ -191,14 +203,14 @@ function renderBadge() {
   const r = remainPct()
   const fill = $('#fill')
   const tips = []
-  if (cfg.showFive) tips.push(five ? `5 小時：已用 ${Math.round(five.used)}% · Resets ${fmtReset(five.resetsAt)}` : '5 小時：還沒有官方數字')
+  if (cfg.showFive) tips.push(five ? `5 小時：已用 ${Math.round(five.used)}% · Resets${NB}${fmtReset(five.resetsAt)}` : '5 小時：還沒有官方數字')
   if (r === null) {
     $('#pct').textContent = '點我校準'; fill.style.width = '100%'
     badge.title = ['還不知道你的每週額度，點一下填當前已用百分比'].concat(tips).join(NL)
     return
   }
   setBar(fill, $('#pct'), 100 - r)
-  if (rl && rl.week) tips.push(`本週：已用 ${Math.round(rl.week.used)}%（官方數字）· Resets ${fmtReset(rl.week.resetsAt)}`)
+  if (rl && rl.week) tips.push(`本週：已用 ${Math.round(rl.week.used)}%（官方數字）· Resets${NB}${fmtReset(rl.week.resetsAt)}`)
   else tips.push(`本週已用 ${money(stats.period, 2)} / 額度 ${money(stats.budget, 0)}（估算）` + NL + `Resets ${fmtReset(stats.nextReset)}`)
   if (stats.rlErr) tips.push('官方額度讀取失敗：' + stats.rlErr)
   badge.title = tips.join(NL)

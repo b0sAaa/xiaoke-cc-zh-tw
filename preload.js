@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('xk', {
   setIgnore: v => ipcRenderer.send('set-ignore', v),
   probeNow: () => ipcRenderer.send('probe-now'),
+  fit: h => ipcRenderer.send('fit-height', h),
   dragStart: () => ipcRenderer.send('drag-start'),
   dragRun: () => ipcRenderer.send('drag-run'),
   moveEnd: () => ipcRenderer.send('move-end'),
