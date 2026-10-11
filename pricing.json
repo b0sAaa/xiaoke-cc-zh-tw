@@ -7,12 +7,14 @@
     "claude-opus-5":     { "input": 5,  "output": 25, "cacheWrite5m": 6.25, "cacheWrite1h": 10, "cacheRead": 0.5 },
     "claude-sonnet-5-5": { "input": 2,  "output": 10, "cacheWrite5m": 2.5,  "cacheWrite1h": 4,  "cacheRead": 0.2 },
     "claude-sonnet-5":   { "input": 2,  "output": 10, "cacheWrite5m": 2.5,  "cacheWrite1h": 4,  "cacheRead": 0.2 },
-    "claude-haiku-4-5":  { "input": 1,  "output": 5,  "cacheWrite5m": 1.25, "cacheWrite1h": 2,  "cacheRead": 0.1 }
+    "claude-haiku-5-5":  { "input": 0.1, "output": 0.5, "cacheWrite5m": 0.125, "cacheWrite1h": 0.2, "cacheRead": 0.01 },
+    "claude-haiku-4-5":  { "input": 1,  "output": 5,  "cacheWrite5m": 1.25, "cacheWrite1h": 2,  "cacheRead": 0.1 },
+    "claude-haiku-4-5-20251001": { "input": 1,  "output": 5,  "cacheWrite5m": 1.25, "cacheWrite1h": 2,  "cacheRead": 0.1 }
   },
   "_family": {
     "fable":  "claude-fable-5-1",
     "opus":   "claude-opus-5-5",
     "sonnet": "claude-sonnet-5-5",
-    "haiku":  "claude-haiku-4-5"
+    "haiku":  "claude-haiku-5-5"
   }
 }

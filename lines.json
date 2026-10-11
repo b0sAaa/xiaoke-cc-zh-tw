@@ -242,5 +242,22 @@
  {
   "text": "26...32",
   "weight": 1
+ },
+ {
+  "text": "Opus 在睡覺，現在是我 Sonnet 值班...",
+  "weight": 3
+ },
+  {
+  "text": "Sonnet 在睡覺，現在是我 Haiku 值班...",
+  "weight": 3
+ },
+   {
+  "text": "Sonnet 在睡覺，現在是我 GPT-5.6 Luna ...",
+  "weight": 3
+ },
+    {
+  "text": "Hmm...",
+  "weight": 3
  }
+
 ]
