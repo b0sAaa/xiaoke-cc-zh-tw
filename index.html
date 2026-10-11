@@ -21,7 +21,7 @@
   #badge .track { margin-top: 4px; height: 7px; border-radius: 999px; background: #eee5da; overflow: hidden; }
   #badge .fill { height: 100%; width: 100%; border-radius: 999px; background: var(--coral); transition: width .6s ease; }
   #badge .fill.low { background: #c64545; }
-  #badge #five { margin-top: 6px; }
+  #badge #five { margin-bottom: 6px; }
   #badge [hidden] { display: none; }
   #bubble input.pct { width: 64px; margin: 6px 4px 0; padding: 3px 6px; border: 1.5px solid var(--coral); border-radius: 6px;
     background: #fff; color: var(--ink); font-size: 14px; text-align: center; outline: 0; }
@@ -49,7 +49,7 @@
 <div id="bubble"></div>
 <div id="stage">
   <img id="char" src="assets/xiaoke1.png" draggable="false">
-  <div id="badge"><div class="row"><span>Weekly · all models</span><b id="pct">…</b></div><div class="track"><div class="fill" id="fill"></div></div><div id="five" hidden><div class="row"><span>5-hour</span><b id="pct5">…</b></div><div class="track"><div class="fill" id="fill5"></div></div></div></div>
+  <div id="badge"><div id="five" hidden><div class="row"><span>5-hour</span><b id="pct5">…</b></div><div class="track"><div class="fill" id="fill5"></div></div></div><div class="row"><span>Weekly · all models</span><b id="pct">…</b></div><div class="track"><div class="fill" id="fill"></div></div></div>
 </div>
 <script>
 const $ = s => document.querySelector(s)
