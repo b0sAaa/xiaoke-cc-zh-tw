@@ -34,26 +34,13 @@ function periodStart(now = Date.now()) {
   return d.getTime()
 }
 
-// statusline.js 存下的官方額度（Pro / Max 才有）。resets_at 已過的視窗不採用，等下一次更新。
-function readRateLimits() {
-  try {
-    const raw = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'rate_limits.json'), 'utf8')).rate_limits || {}
-    const pick = w => {
-      if (!w || typeof w.used_percentage !== 'number' || !(w.resets_at * 1000 > Date.now())) return null
-      return { used: Math.max(0, Math.min(100, w.used_percentage)), resetsAt: w.resets_at * 1000 }
-    }
-    const five = pick(raw.five_hour), seven = pick(raw.seven_day)
-    return five || seven ? { five, seven } : null
-  } catch (e) { return null }
-}
-
 function withQuota(st) {
   if (!cfg.weeklyBudget && cfg.calibrateUsedPct && st.period > 0) {
     cfg.weeklyBudget = Math.round(st.period / (cfg.calibrateUsedPct / 100))
     cfg.calibrateUsedPct = null
     saveCfg()
   }
-  return { ...st, budget: cfg.weeklyBudget, nextReset: periodStart() + 7 * 86400e3, rl: readRateLimits() }
+  return { ...st, budget: cfg.weeklyBudget, nextReset: periodStart() + 7 * 86400e3 }
 }
 
 function send(ch, data) { if (win && !win.isDestroyed()) win.webContents.send(ch, data) }
@@ -90,12 +77,25 @@ function setCfg(patch) {
   rebuildTray()
 }
 
+const DAYS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
+// 改額度重置時間：存設定、用新的週期重算本週已花，馬上更新量槽
+function setReset(patch) {
+  setCfg(patch)
+  if (tracker) { lastStats = withQuota(tracker.stats()); send('stats', lastStats) }
+}
+
 function menuTemplate() {
   const autostart = app.getLoginItemSettings(loginArgs()).openAtLogin
   return [
     { label: '看看賬本', click: () => send('show-stats') },
     { label: '問 Claude…（雙擊小克）', click: () => openQuick() },
     { label: '校準每週額度…', click: () => send('calibrate-ui') },
+    {
+      label: `額度重置時間（${DAYS[cfg.resetDay]} ${String(cfg.resetHour).padStart(2, '0')}:00）`, submenu: [
+        { label: '星期', submenu: DAYS.map((n, i) => ({ label: n, type: 'radio', checked: cfg.resetDay === i, click: () => setReset({ resetDay: i }) })) },
+        { label: '時間', submenu: Array.from({ length: 24 }, (_, h) => ({ label: `${String(h).padStart(2, '0')}:00`, type: 'radio', checked: cfg.resetHour === h, click: () => setReset({ resetHour: h }) })) },
+      ],
+    },
     { label: '戳一下', click: () => send('poke') },
     { type: 'separator' },
     {
@@ -270,14 +270,6 @@ app.whenReady().then(() => {
   tracker.on('stats', s => { lastStats = withQuota(s); send('stats', lastStats) })
   tracker.on('turn', t => send('turn', t))
   tracker.start(3000)
-  // 官方額度檔有變動就重送一次（檔案是 Claude Code 跑的時候才會更新）
-  setInterval(() => {
-    if (!lastStats) return
-    const rl = readRateLimits()
-    if (JSON.stringify(rl) === JSON.stringify(lastStats.rl)) return
-    lastStats = { ...lastStats, rl }
-    send('stats', lastStats)
-  }, 3000)
 })
 
 app.on('second-instance', () => { if (win) { win.show(); send('poke') } })
