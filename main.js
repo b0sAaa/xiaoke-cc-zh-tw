@@ -159,7 +159,8 @@ function menuTemplate() {
   return [
     { label: '看看賬本', click: () => send('show-stats') },
     { label: '問 Claude…（雙擊小克）', click: () => openQuick() },
-    { label: '校準每週額度…', click: () => send('calibrate-ui') },
+    // 讀得到官方數字時會自動校準估算，這項只在讀不到時才需要
+    { label: '校準每週額度…', visible: !liveReal(), click: () => send('calibrate-ui') },
     { label: '讀取官方額度（Claude Code /usage）', type: 'checkbox', checked: cfg.useReal, click: m => { setCfg({ useReal: m.checked }); if (m.checked) probeUsage(true); else refreshStats() } },
     { label: '顯示 5 小時量槽', type: 'checkbox', checked: cfg.showFive, click: m => setCfg({ showFive: m.checked }) },
     {
