@@ -21,6 +21,8 @@
   #badge .track { margin-top: 4px; height: 7px; border-radius: 999px; background: #eee5da; overflow: hidden; }
   #badge .fill { height: 100%; width: 100%; border-radius: 999px; background: var(--coral); transition: width .6s ease; }
   #badge .fill.low { background: #c64545; }
+  #badge #five { margin-top: 6px; }
+  #badge [hidden] { display: none; }
   #bubble input.pct { width: 64px; margin: 6px 4px 0; padding: 3px 6px; border: 1.5px solid var(--coral); border-radius: 6px;
     background: #fff; color: var(--ink); font-size: 14px; text-align: center; outline: 0; }
   #bubble { position: absolute; left: 50%; transform: translateX(-50%) scale(.6); transform-origin: 50% 100%;
@@ -47,7 +49,7 @@
 <div id="bubble"></div>
 <div id="stage">
   <img id="char" src="assets/xiaoke1.png" draggable="false">
-  <div id="badge"><div class="row"><span>Weekly · all models</span><b id="pct">…</b></div><div class="track"><div class="fill" id="fill"></div></div></div>
+  <div id="badge"><div class="row"><span>Weekly · all models</span><b id="pct">…</b></div><div class="track"><div class="fill" id="fill"></div></div><div id="five" hidden><div class="row"><span>5-hour</span><b id="pct5">…</b></div><div class="track"><div class="fill" id="fill5"></div></div></div></div>
 </div>
 <script>
 const $ = s => document.querySelector(s)
@@ -130,7 +132,8 @@ function showStats() {
   say(`<div class="sub">今日（按 API 價折算）</div>
     <div class="big">${money(stats.today, 2)}</div>
     <div class="sub">${stats.todayMsgs} 次回覆 · 近 7 天 ${money(stats.week, 2)}</div>
-    ${stats.budget ? `<div class="sub">本週 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · 剩 ${Math.round(remainPct())}% · Resets ${fmtReset(stats.nextReset)}</div>` : ''}
+    ${stats.rl && stats.rl.five && cfg.showFive ? `<div class="sub">5 小時 剩 ${Math.round(100 - stats.rl.five.used)}% · Resets ${fmtReset(stats.rl.five.resetsAt)}</div>` : ''}
+    ${stats.rl && stats.rl.week ? `<div class="sub">本週 剩 ${Math.round(100 - stats.rl.week.used)}% · Resets ${fmtReset(stats.rl.week.resetsAt)}</div>` : stats.budget ? `<div class="sub">本週 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · 剩 ${Math.round(remainPct())}% · Resets ${fmtReset(stats.nextReset)}</div>` : ''}
     <div class="bars">${bars}</div><div class="lbl"></div>
     ${models ? `<table>${models}</table>` : ''}`, 10)
 }
@@ -160,20 +163,41 @@ function fmtReset(ts) {
   const h = d.getHours() % 12 || 12
   return `${day} ${h}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'AM' : 'PM'}`
 }
+const NL = String.fromCharCode(10)
 function remainPct() {
+  if (stats && stats.rl && stats.rl.week) return Math.max(0, Math.min(100, 100 - stats.rl.week.used))
   if (!stats || !stats.budget) return null
   return Math.max(0, Math.min(100, 100 - stats.period / stats.budget * 100))
 }
+function setBar(fillEl, pctEl, r) {
+  pctEl.textContent = Math.round(r) + '% left'
+  fillEl.style.width = r + '%'
+  fillEl.classList.toggle('low', r < 10)
+}
 function renderBadge() {
   if (!stats) return
+  const rl = stats.rl
+  const five = rl && rl.five
+  const fiveEl = $('#five')
+  fiveEl.hidden = !cfg.showFive
+  if (cfg.showFive) {
+    if (five) setBar($('#fill5'), $('#pct5'), Math.max(0, 100 - five.used))
+    else { $('#pct5').textContent = '—'; $('#fill5').style.width = '0%' }
+  }
   const r = remainPct()
   const fill = $('#fill')
-  if (r === null) { $('#pct').textContent = '點我校準'; fill.style.width = '100%'; badge.title = '還不知道你的每週額度，點一下填當前已用百分比'; return }
-  $('#pct').textContent = Math.round(r) + '% left'
-  fill.style.width = r + '%'
-  fill.classList.toggle('low', r < 10)
-  badge.title = `本週已用 ${money(stats.period, 2)} / 額度 ${money(stats.budget, 0)}
-Resets ${fmtReset(stats.nextReset)}`
+  const tips = []
+  if (cfg.showFive) tips.push(five ? `5 小時：已用 ${Math.round(five.used)}% · Resets ${fmtReset(five.resetsAt)}` : '5 小時：還沒有官方數字')
+  if (r === null) {
+    $('#pct').textContent = '點我校準'; fill.style.width = '100%'
+    badge.title = ['還不知道你的每週額度，點一下填當前已用百分比'].concat(tips).join(NL)
+    return
+  }
+  setBar(fill, $('#pct'), r)
+  if (rl && rl.week) tips.push(`本週：已用 ${Math.round(rl.week.used)}%（官方數字）· Resets ${fmtReset(rl.week.resetsAt)}`)
+  else tips.push(`本週已用 ${money(stats.period, 2)} / 額度 ${money(stats.budget, 0)}（估算）` + NL + `Resets ${fmtReset(stats.nextReset)}`)
+  if (stats.rlErr) tips.push('官方額度讀取失敗：' + stats.rlErr)
+  badge.title = tips.join(NL)
 }
 
 // ---------- 透明區域點穿 ----------
@@ -239,7 +263,8 @@ function calibrateUI() {
   })
 }
 
-badge.addEventListener('click', () => (stats && !stats.budget) ? calibrateUI() : bubble.classList.contains('show') && bubble.querySelector('.bars') ? bubble.classList.remove('show') : showStats())
+badge.addEventListener('click', () => { window.xk.probeNow() }, true)
+badge.addEventListener('click', () => (stats && !stats.budget && !(stats.rl && stats.rl.week)) ? calibrateUI() : bubble.classList.contains('show') && bubble.querySelector('.bars') ? bubble.classList.remove('show') : showStats())
 bubble.addEventListener('click', e => { if (e.target.tagName !== 'INPUT') bubble.classList.remove('show') })
 document.addEventListener('contextmenu', e => { e.preventDefault(); window.xk.menu() })
 

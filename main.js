@@ -15,6 +15,8 @@ const DEFAULTS = {
   followClaude: true,
   // 每週額度：週四 1:00 重置；weeklyBudget 為空時，用 calibrateUsedPct（當前已用百分比）自動反推
   resetDay: 4, resetHour: 1, weeklyBudget: null, calibrateUsedPct: null,
+  useReal: true,    // 讀 Claude Code /usage 的官方額度（較準）
+  showFive: false,  // 顯示 5 小時量槽
 }
 let cfg = { ...DEFAULTS }
 try { cfg = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(cfgFile(), 'utf8')) } } catch (e) { /* 首次啟動 */ }
@@ -34,13 +36,80 @@ function periodStart(now = Date.now()) {
   return d.getTime()
 }
 
+// ---------- 官方額度：用 scripts/probe-usage.js 讀 Claude Code /usage 畫面 ----------
+// 開一個隱藏的 claude 看一眼就關（約 4 秒、不花 token）。啟動時、每輪結束後（至少隔 5 分鐘）、點量槽時各讀一次。
+const { spawn } = require('child_process')
+const PROBE_GAP = 5 * 60e3
+let real = null, probing = false, lastProbe = 0, probeTimer = null, probeErr = null
+const realFile = () => path.join(app.getPath('userData'), 'real-usage.json')
+try { real = JSON.parse(fs.readFileSync(realFile(), 'utf8')) } catch (e) { /* 還沒讀過 */ }
+
+// 目前還有效（重置時間還沒過）的官方數字；沒有就回傳 null，畫面退回估算
+function liveReal() {
+  if (!cfg.useReal || !real) return null
+  const pick = w => (w && w.resetsAt > Date.now()) ? { used: w.pct, resetsAt: w.resetsAt } : null
+  const week = pick(real.week), five = pick(real.session)
+  return week || five ? { at: real.at, week, five } : null
+}
+
+function probeUsage(force) {
+  if (!cfg.useReal || probing) return
+  const since = Date.now() - lastProbe
+  if (force ? since < 20e3 : since < PROBE_GAP) {
+    // 太頻繁就排一次延後的重讀，讓最後的數字一定會更新
+    if (!force && !probeTimer) probeTimer = setTimeout(() => { probeTimer = null; probeUsage(false) }, PROBE_GAP - since + 500)
+    return
+  }
+  probing = true
+  lastProbe = Date.now()
+  let out = ''
+  const finish = () => {
+    if (!probing) return
+    probing = false
+    try {
+      const r = JSON.parse(out.trim().split(String.fromCharCode(10)).pop())
+      if (r.ok) { real = r; probeErr = null; fs.writeFileSync(realFile(), JSON.stringify(r)); onRealUpdate() }
+      else { probeErr = r.error; refreshStats() }
+    } catch (e) { probeErr = '讀取失敗'; refreshStats() }
+  }
+  try {
+    const child = spawn('node', [path.join(__dirname, 'scripts', 'probe-usage.js')], { windowsHide: true })
+    child.stdout.on('data', d => { out += d })
+    child.on('error', () => { probeErr = '找不到 node'; probing = false; refreshStats() })
+    child.on('close', finish)
+    setTimeout(() => { try { child.kill() } catch (e) { /* ignore */ } }, 40e3)
+  } catch (e) { probing = false }
+}
+
+function refreshStats() {
+  if (!tracker) return
+  lastStats = withQuota(tracker.stats())
+  send('stats', lastStats)
+}
+
+function onRealUpdate() {
+  const w = real.week
+  if (w) {
+    // 重置時間直接跟官方一致（分鐘四捨五入到整點，例如 13:59 → 14:00）
+    const d = new Date(w.resetsAt + 30 * 60e3)
+    if (d.getDay() !== cfg.resetDay || d.getHours() !== cfg.resetHour) { cfg.resetDay = d.getDay(); cfg.resetHour = d.getHours() }
+    // 順便用官方百分比校準估算，讀不到官方數字時退回估算也比較準
+    if (tracker && w.pct >= 10) {
+      const period = tracker.stats().period
+      if (period > 0) cfg.weeklyBudget = Math.round(period / (w.pct / 100))
+    }
+    saveCfg()
+  }
+  refreshStats()
+}
+
 function withQuota(st) {
   if (!cfg.weeklyBudget && cfg.calibrateUsedPct && st.period > 0) {
     cfg.weeklyBudget = Math.round(st.period / (cfg.calibrateUsedPct / 100))
     cfg.calibrateUsedPct = null
     saveCfg()
   }
-  return { ...st, budget: cfg.weeklyBudget, nextReset: periodStart() + 7 * 86400e3 }
+  return { ...st, budget: cfg.weeklyBudget, nextReset: periodStart() + 7 * 86400e3, rl: liveReal(), rlErr: cfg.useReal ? probeErr : null }
 }
 
 function send(ch, data) { if (win && !win.isDestroyed()) win.webContents.send(ch, data) }
@@ -90,6 +159,9 @@ function menuTemplate() {
     { label: '看看賬本', click: () => send('show-stats') },
     { label: '問 Claude…（雙擊小克）', click: () => openQuick() },
     { label: '校準每週額度…', click: () => send('calibrate-ui') },
+    { label: '讀取官方額度（Claude Code /usage）', type: 'checkbox', checked: cfg.useReal, click: m => { setCfg({ useReal: m.checked }); if (m.checked) probeUsage(true); else refreshStats() } },
+    { label: '顯示 5 小時量槽', type: 'checkbox', checked: cfg.showFive, click: m => setCfg({ showFive: m.checked }) },
+    { label: '立即更新官方額度', enabled: cfg.useReal, click: () => probeUsage(true) },
     {
       label: `額度重置時間（${DAYS[cfg.resetDay]} ${String(cfg.resetHour).padStart(2, '0')}:00）`, submenu: [
         { label: '星期', submenu: DAYS.map((n, i) => ({ label: n, type: 'radio', checked: cfg.resetDay === i, click: () => setReset({ resetDay: i }) })) },
@@ -161,6 +233,7 @@ function openQuick() {
   quick.on('blur', () => { if (Date.now() - shownAt > 600 && quick && !quick.isDestroyed()) quick.close() })
   quick.on('closed', () => { quick = null })
 }
+ipcMain.on('probe-now', () => probeUsage(true))
 ipcMain.on('quick-open', () => openQuick())
 ipcMain.on('quick-close', () => { if (quick && !quick.isDestroyed()) quick.close() })
 ipcMain.on('quick-submit', (e, text) => {
@@ -268,8 +341,9 @@ app.whenReady().then(() => {
   })
   tracker.periodStart = () => periodStart()
   tracker.on('stats', s => { lastStats = withQuota(s); send('stats', lastStats) })
-  tracker.on('turn', t => send('turn', t))
+  tracker.on('turn', t => { send('turn', t); probeUsage(false) })
   tracker.start(3000)
+  setTimeout(() => probeUsage(true), 3000)
 })
 
 app.on('second-instance', () => { if (win) { win.show(); send('poke') } })

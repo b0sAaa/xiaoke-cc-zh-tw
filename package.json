@@ -12,7 +12,8 @@
     "hooks:uninstall": "node scripts/hooks.js uninstall"
   },
   "dependencies": {
-    "electron": "^44.5.1"
+    "electron": "^44.5.1",
+    "node-pty": "^1.1.0"
   },
   "license": "MIT"
 }
