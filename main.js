@@ -17,6 +17,7 @@ const DEFAULTS = {
   resetDay: 4, resetHour: 1, weeklyBudget: null, calibrateUsedPct: null,
   useReal: true,    // 讀 Claude Code /usage 的官方額度（較準）
   showFive: false,  // 顯示 5 小時量槽
+  showUsed: true,   // 量槽顯示「已用」（同 Claude）；false 則顯示「剩餘」
 }
 let cfg = { ...DEFAULTS }
 try { cfg = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(cfgFile(), 'utf8')) } } catch (e) { /* 首次啟動 */ }
@@ -161,6 +162,12 @@ function menuTemplate() {
     { label: '校準每週額度…', click: () => send('calibrate-ui') },
     { label: '讀取官方額度（Claude Code /usage）', type: 'checkbox', checked: cfg.useReal, click: m => { setCfg({ useReal: m.checked }); if (m.checked) probeUsage(true); else refreshStats() } },
     { label: '顯示 5 小時量槽', type: 'checkbox', checked: cfg.showFive, click: m => setCfg({ showFive: m.checked }) },
+    {
+      label: '量槽顯示方式', submenu: [
+        { label: '已用（同 Claude）', type: 'radio', checked: cfg.showUsed !== false, click: () => setCfg({ showUsed: true }) },
+        { label: '剩餘', type: 'radio', checked: cfg.showUsed === false, click: () => setCfg({ showUsed: false }) },
+      ],
+    },
     { label: '立即更新官方額度', enabled: cfg.useReal, click: () => probeUsage(true) },
     {
       label: `額度重置時間（${DAYS[cfg.resetDay]} ${String(cfg.resetHour).padStart(2, '0')}:00）`, submenu: [

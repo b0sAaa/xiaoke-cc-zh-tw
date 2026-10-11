@@ -132,8 +132,8 @@ function showStats() {
   say(`<div class="sub">今日（按 API 價折算）</div>
     <div class="big">${money(stats.today, 2)}</div>
     <div class="sub">${stats.todayMsgs} 次回覆 · 近 7 天 ${money(stats.week, 2)}</div>
-    ${stats.rl && stats.rl.five && cfg.showFive ? `<div class="sub">5 小時 剩 ${Math.round(100 - stats.rl.five.used)}% · Resets ${fmtReset(stats.rl.five.resetsAt)}</div>` : ''}
-    ${stats.rl && stats.rl.week ? `<div class="sub">本週 剩 ${Math.round(100 - stats.rl.week.used)}% · Resets ${fmtReset(stats.rl.week.resetsAt)}</div>` : stats.budget ? `<div class="sub">本週 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · 剩 ${Math.round(remainPct())}% · Resets ${fmtReset(stats.nextReset)}</div>` : ''}
+    ${stats.rl && stats.rl.five && cfg.showFive ? `<div class="sub">5 小時 ${qtxt(stats.rl.five.used)} · Resets ${fmtReset(stats.rl.five.resetsAt)}</div>` : ''}
+    ${stats.rl && stats.rl.week ? `<div class="sub">本週 ${qtxt(stats.rl.week.used)} · Resets ${fmtReset(stats.rl.week.resetsAt)}</div>` : stats.budget ? `<div class="sub">本週 ${money(stats.period, 0)} / ${money(stats.budget, 0)} · ${qtxt(100 - remainPct())} · Resets ${fmtReset(stats.nextReset)}</div>` : ''}
     <div class="bars">${bars}</div><div class="lbl"></div>
     ${models ? `<table>${models}</table>` : ''}`, 10)
 }
@@ -169,10 +169,14 @@ function remainPct() {
   if (!stats || !stats.budget) return null
   return Math.max(0, Math.min(100, 100 - stats.period / stats.budget * 100))
 }
-function setBar(fillEl, pctEl, r) {
-  pctEl.textContent = Math.round(r) + '% left'
-  fillEl.style.width = r + '%'
-  fillEl.classList.toggle('low', r < 10)
+const showUsed = () => cfg.showUsed !== false
+const qtxt = used => showUsed() ? `已用 ${Math.round(used)}%` : `剩 ${Math.round(100 - used)}%`
+function setBar(fillEl, pctEl, used) {
+  used = Math.max(0, Math.min(100, used))
+  const v = showUsed() ? used : 100 - used
+  pctEl.textContent = Math.round(v) + (showUsed() ? '% used' : '% left')
+  fillEl.style.width = v + '%'
+  fillEl.classList.toggle('low', used >= 90)
 }
 function renderBadge() {
   if (!stats) return
@@ -181,7 +185,7 @@ function renderBadge() {
   const fiveEl = $('#five')
   fiveEl.hidden = !cfg.showFive
   if (cfg.showFive) {
-    if (five) setBar($('#fill5'), $('#pct5'), Math.max(0, 100 - five.used))
+    if (five) setBar($('#fill5'), $('#pct5'), five.used)
     else { $('#pct5').textContent = '—'; $('#fill5').style.width = '0%' }
   }
   const r = remainPct()
@@ -193,7 +197,7 @@ function renderBadge() {
     badge.title = ['還不知道你的每週額度，點一下填當前已用百分比'].concat(tips).join(NL)
     return
   }
-  setBar(fill, $('#pct'), r)
+  setBar(fill, $('#pct'), 100 - r)
   if (rl && rl.week) tips.push(`本週：已用 ${Math.round(rl.week.used)}%（官方數字）· Resets ${fmtReset(rl.week.resetsAt)}`)
   else tips.push(`本週已用 ${money(stats.period, 2)} / 額度 ${money(stats.budget, 0)}（估算）` + NL + `Resets ${fmtReset(stats.nextReset)}`)
   if (stats.rlErr) tips.push('官方額度讀取失敗：' + stats.rlErr)
