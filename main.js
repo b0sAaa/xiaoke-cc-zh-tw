@@ -34,21 +34,40 @@ function periodStart(now = Date.now()) {
   return d.getTime()
 }
 
+// statusline.js 存下的官方額度（Pro / Max 才有）。resets_at 已過的視窗不採用，等下一次更新。
+function readRateLimits() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'rate_limits.json'), 'utf8')).rate_limits || {}
+    const pick = w => {
+      if (!w || typeof w.used_percentage !== 'number' || !(w.resets_at * 1000 > Date.now())) return null
+      return { used: Math.max(0, Math.min(100, w.used_percentage)), resetsAt: w.resets_at * 1000 }
+    }
+    const five = pick(raw.five_hour), seven = pick(raw.seven_day)
+    return five || seven ? { five, seven } : null
+  } catch (e) { return null }
+}
+
 function withQuota(st) {
   if (!cfg.weeklyBudget && cfg.calibrateUsedPct && st.period > 0) {
     cfg.weeklyBudget = Math.round(st.period / (cfg.calibrateUsedPct / 100))
     cfg.calibrateUsedPct = null
     saveCfg()
   }
-  return { ...st, budget: cfg.weeklyBudget, nextReset: periodStart() + 7 * 86400e3 }
+  return { ...st, budget: cfg.weeklyBudget, nextReset: periodStart() + 7 * 86400e3, rl: readRateLimits() }
 }
 
 function send(ch, data) { if (win && !win.isDestroyed()) win.webContents.send(ch, data) }
 
 function createWindow() {
   const wa = screen.getPrimaryDisplay().workArea
-  const x = cfg.x ?? wa.x + wa.width - W - 20
-  const y = cfg.y ?? wa.y + wa.height - H
+  // 存下來的位置如果已經不在任何螢幕內（拔了螢幕、拖到畫面外），就回到右下角
+  const cx = (cfg.x ?? 0) + W / 2, cy = (cfg.y ?? 0) + H / 2
+  const visible = cfg.x != null && cfg.y != null && screen.getAllDisplays().some(d => {
+    const b = d.workArea
+    return cx >= b.x && cx <= b.x + b.width && cy >= b.y && cy <= b.y + b.height
+  })
+  const x = visible ? cfg.x : wa.x + wa.width - W - 20
+  const y = visible ? cfg.y : wa.y + wa.height - H
   win = new BrowserWindow({
     width: W, height: H, x, y,
     frame: false, transparent: true, resizable: false, maximizable: false,
@@ -99,7 +118,7 @@ function menuTemplate() {
     { label: '編輯臺詞 (lines.json)', click: () => shell.openPath(path.join(__dirname, 'lines.json')) },
     { label: '編輯價格 (pricing.json)', click: () => shell.openPath(path.join(__dirname, 'pricing.json')) },
     { label: '重新載入臺詞和價格', click: () => { tracker.loadPricing(); tracker.entries = {}; tracker.files = {}; tracker.live = false; tracker.scan(); send('reload-lines') } },
-    { label: '回到右下角', click: () => { const wa = screen.getPrimaryDisplay().workArea; win.setPosition(wa.x + wa.width - W - 20, wa.y + wa.height - H); setCfg({ x: null, y: null }) } },
+    { label: '回到右下角', click: () => { const wa = screen.getPrimaryDisplay().workArea; win.setBounds({ x: wa.x + wa.width - W - 20, y: wa.y + wa.height - H, width: W, height: H }); setCfg({ x: null, y: null }) } },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
   ]
@@ -163,9 +182,22 @@ ipcMain.on('calibrate', (e, pct) => {
 ipcMain.on('set-ignore', (e, ignore) => {
   if (win) win.setIgnoreMouseEvents(ignore, { forward: true })
 })
-ipcMain.handle('get-pos', () => win.getPosition())
-ipcMain.on('move-to', (e, [x, y]) => win.setPosition(Math.round(x), Math.round(y)))
-ipcMain.on('move-end', () => { const [x, y] = win.getPosition(); cfg.x = x; cfg.y = y; saveCfg() })
+// 拖動：由主程序直接讀滑鼠的真實螢幕座標，不靠網頁事件的 screenX（縮放比例非整數、多螢幕時會越拖越偏）
+let dragTimer = null, dragFrom = null
+function stopDrag() { if (dragTimer) { clearInterval(dragTimer); dragTimer = null } }
+ipcMain.on('drag-start', () => { stopDrag(); dragFrom = { c: screen.getCursorScreenPoint(), p: win.getPosition() } })
+ipcMain.on('drag-run', () => {
+  if (!dragFrom) return
+  stopDrag()
+  const { c, p } = dragFrom
+  dragTimer = setInterval(() => {
+    if (!win || win.isDestroyed()) return stopDrag()
+    const n = screen.getCursorScreenPoint()
+    // 不能用 setPosition：Windows 非整數縮放（如 125%）下它每呼叫一次視窗就會多長幾個像素，小克就越拖越往下掉。setBounds 連同寬高一起指定才不會漂。
+    win.setBounds({ x: p[0] + n.x - c.x, y: p[1] + n.y - c.y, width: W, height: H })
+  }, 8)
+})
+ipcMain.on('move-end', () => { stopDrag(); dragFrom = null; const [x, y] = win.getPosition(); cfg.x = x; cfg.y = y; saveCfg() })
 ipcMain.on('menu', () => Menu.buildFromTemplate(menuTemplate()).popup({ window: win }))
 // 角色圖的不透明區域（降取樣成 1/4 網格），用來判斷滑鼠是否點在小克身上
 ipcMain.handle('mask', () => {
@@ -238,6 +270,14 @@ app.whenReady().then(() => {
   tracker.on('stats', s => { lastStats = withQuota(s); send('stats', lastStats) })
   tracker.on('turn', t => send('turn', t))
   tracker.start(3000)
+  // 官方額度檔有變動就重送一次（檔案是 Claude Code 跑的時候才會更新）
+  setInterval(() => {
+    if (!lastStats) return
+    const rl = readRateLimits()
+    if (JSON.stringify(rl) === JSON.stringify(lastStats.rl)) return
+    lastStats = { ...lastStats, rl }
+    send('stats', lastStats)
+  }, 3000)
 })
 
 app.on('second-instance', () => { if (win) { win.show(); send('poke') } })
